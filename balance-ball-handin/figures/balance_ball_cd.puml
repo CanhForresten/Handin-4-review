@@ -1,0 +1,164 @@
+@startuml balance_ball_cd
+
+/' Generated with hpp2plantuml -i "../../include/*.hpp" -o out.puml '/
+
+
+
+
+/' Objects '/
+
+class Accelerometer {
+	+Accelerometer(std::string path_name)
+	+~Accelerometer()
+	-isActive : bool
+	-fd : int
+	-buffer : int
+	-tx : struct spi_ioc_transfer
+	+accelerometerThread() : void
+    - initSPI(std::string path_name) : void
+    - readReg(uint8_t reg, uint8_t nbytes) : int
+    - writeReg(uint8_t reg, uint8_t data) : int
+    - startAccel(void) : void
+    - isAccelDataAvailable(void) : bool
+    - readAccel(void) : void
+}
+
+class Broker {
+	-Broker()
+	+{static} getInstance() : Broker&
+	-subscribers : std::map<std::string, std::vector<std::weak_ptr<IConsumer>>>
+	-mtx : std::mutex
+	+publish(std::unique_ptr<Message> msg) : void
+	+subscribe(const std::string& topic, std::shared_ptr<IConsumer> IConsumer) : void
+	+unsubscribe(const std::string& topic, std::shared_ptr<IConsumer> IConsumer) : void
+}
+
+
+class Button {
+	+Button(std::string path_name, int gpio)
+	+~Button()
+	-isActive : bool
+	-fd : int
+	-gpio : int
+	+ButtonThread() : void
+}
+
+
+class Display {
+	+Display(SSD1306& oledRef)
+	-oled : SSD1306&
+	-display_mtx : std::mutex
+	+drawDisplay(GameState gameState) : void
+}
+
+class Logger {
+	+onMessage(const Message& msg) : void
+}
+
+class GameControl {
+	+GameControl(Display& display)
+	-display : Display*
+	-gameState : GameState
+	-handleAccelerometer(const std::string& data) : void
+	-handleButton(const std::string& data) : void
+	+onMessage(const Message& msg) : void
+}
+
+
+class I2CDriver {
+	+I2CDriver()
+	+~I2CDriver()
+	-fd_ : int
+	+read(uint8_t slaveAddress, uint8_t* buf, uint16_t length) : int8_t
+	+write(uint8_t slaveAddress, const uint8_t* buf, uint16_t length) : int8_t
+}
+
+
+abstract class IConsumer {
+	+~IConsumer()
+	+{abstract} onMessage(const Message& msg) : void
+}
+
+
+class Led {
+	+Led(std::string path_name)
+	+~Led()
+	-fd : int
+	+off() : void
+	+on() : void
+	+onMessage(const Message& msg) : void
+}
+
+class GameState {
+	+ball_x : int
+	+ball_y : int
+	+score : int
+}
+
+
+class Message {
+	+Message(std::string topic, std::string data)
+	+data : std::string
+	+topic : std::string
+}
+note left: Known by all 
+
+
+
+class Oled {
+	-i2c_driver : I2CDriver
+	+OLEDupdate()
+	+OLEDBitmap()
+}
+
+class gpio_kernel_driver{
+	+open()
+	+release()
+	+read()
+	+write()
+}
+note bottom: Kernel driver 
+
+/' Inheritance relationships '/
+
+IConsumer <|-- GameControl
+
+
+IConsumer <|-- Led
+
+IConsumer <|-- Logger
+
+
+
+
+/' Aggregation relationships '/
+
+Broker o-- IConsumer : <Weak>
+
+Oled o-- I2CDriver
+
+Display o-- Oled
+
+Led ..> gpio_kernel_driver
+Button ..> gpio_kernel_driver
+
+Accelerometer .left.> Broker
+
+GameControl ..> Broker
+
+GameControl o-- Display
+
+GameControl *-- GameState
+
+Led ..> Broker
+Logger ..> Broker
+
+Button ..> Broker
+
+Broker .up.> Message
+
+/' Nested objects '/
+
+
+
+@enduml
